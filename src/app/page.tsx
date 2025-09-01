@@ -1,103 +1,171 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin from "@fullcalendar/interaction";
+import "@fullcalendar/daygrid/index.css";
+
+// ====== Component: Filters ======
+function Filters({ value, onChange }: { value: any; onChange: (v: any) => void }) {
+  const Select = (p: any) => (
+    <select className="border rounded-xl px-3 py-2" {...p} />
+  );
+  return (
+    <div className="flex flex-wrap gap-3 my-3">
+      <Select
+        value={value.category}
+        onChange={(e) => onChange({ ...value, category: e.target.value })}
+      >
+        <option value="all">كل الأنواع</option>
+        <option value="exam">امتحانات</option>
+        <option value="holiday">إجازات</option>
+        <option value="study">أيام دراسية</option>
+        <option value="event">فعاليات</option>
+        <option value="registration">تسجيل</option>
+      </Select>
+      <Select
+        value={value.audience}
+        onChange={(e) => onChange({ ...value, audience: e.target.value })}
+      >
+        <option value="all">كل الفئات</option>
+        <option value="students">طلاب</option>
+        <option value="parents">أولياء أمور</option>
+        <option value="teachers">معلمون</option>
+      </Select>
+      <Select
+        value={value.term}
+        onChange={(e) => onChange({ ...value, term: e.target.value })}
+      >
+        <option value="all">كل الفصول</option>
+        <option value="T1">الفصل الأول</option>
+        <option value="Break">إجازة</option>
+        <option value="T2">الفصل الثاني</option>
+        <option value="Exams">الامتحانات</option>
+        <option value="Summer">الصيف</option>
+      </Select>
+    </div>
+  );
+}
+
+// ====== Component: Countdown ======
+function NextCountdown({ rows }: { rows: any[] }) {
+  const [now, setNow] = useState<Date>(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const next = useMemo(() => {
+    const list = rows.filter((r) => (r.published || "TRUE").toUpperCase() === "TRUE");
+    const toDate = (r: any) =>
+      new Date(
+        r.start_time ? `${r.start_date}T${r.start_time}` : `${r.start_date}T00:00:00`
+      );
+    const future = list
+      .map((r) => ({ r, d: toDate(r) }))
+      .filter((x) => x.d.getTime() >= now.getTime());
+    future.sort((a, b) => a.d.getTime() - b.d.getTime());
+    return future[0] || null;
+  }, [rows, now]);
+
+  if (!next) return null;
+  const diffMs = next.d.getTime() - now.getTime();
+  const s = Math.max(0, Math.floor(diffMs / 1000));
+  const days = Math.floor(s / 86400),
+    hours = Math.floor((s % 86400) / 3600),
+    mins = Math.floor((s % 3600) / 60),
+    secs = s % 60;
+
+  return (
+    <div className="rounded-2xl border bg-white p-4 shadow-sm my-3">
+      <div className="text-sm text-gray-600 mb-1">الفعالية الأقرب</div>
+      <div className="text-lg font-bold">
+        {next.r.icon_emoji ? `${next.r.icon_emoji} ` : ""}
+        {next.r.title_ar}
+      </div>
+      <div className="text-gray-700 mt-1">
+        تبقّى: {days} يوم، {hours} ساعة، {mins} دقيقة، {secs} ثانية
+      </div>
+    </div>
+  );
+}
+
+// ====== Page ======
+type RawEvent = {
+  id: string;
+  title_ar: string;
+  description?: string;
+  start_date: string;
+  end_date?: string;
+  start_time?: string;
+  end_time?: string;
+  all_day?: string;
+  category?: string;
+  audience?: string;
+  term?: string;
+  color_hex?: string;
+  icon_emoji?: string;
+  published?: string;
+};
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [rows, setRows] = useState<RawEvent[]>([]);
+  const [filters, setFilters] = useState({
+    category: "all",
+    audience: "all",
+    term: "all",
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+  useEffect(() => {
+    fetch(process.env.NEXT_PUBLIC_SHEETDB_URL as string)
+      .then((r) => r.json())
+      .then((data) => (Array.isArray(data) ? data : data.data || []))
+      .then(setRows)
+      .catch((e) => console.error(e));
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      rows
+        .filter((r) => (r.published || "TRUE").toUpperCase() === "TRUE")
+        .filter((r) => filters.category === "all" || r.category === filters.category)
+        .filter(
+          (r) =>
+            filters.audience === "all" ||
+            (r.audience || "").split("|").includes(filters.audience)
+        )
+        .filter((r) => filters.term === "all" || r.term === filters.term),
+    [rows, filters]
+  );
+
+  const events = useMemo(
+    () =>
+      filtered.map((r) => ({
+        id: r.id,
+        title: `${r.icon_emoji ? r.icon_emoji + " " : ""}${r.title_ar}`,
+        start: r.start_date,
+        end: r.end_date || undefined,
+        allDay: true,
+        backgroundColor: r.color_hex || undefined,
+        extendedProps: { description: r.description || "" },
+      })),
+    [filtered]
+  );
+
+  return (
+    <main className="max-w-6xl mx-auto p-6 space-y-4">
+      <h1 className="text-3xl font-bold">📅 تقويم العام الدراسي 2025/2026</h1>
+      <NextCountdown rows={rows} />
+      <Filters value={filters} onChange={setFilters} />
+      <FullCalendar
+        plugins={[dayGridPlugin, interactionPlugin]}
+        initialView="dayGridMonth"
+        locale="ar"
+        firstDay={6}
+        height="auto"
+        events={events}
+      />
+    </main>
   );
 }
